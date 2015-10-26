@@ -31,7 +31,7 @@ function RtcDataChannel(channel) {
   self.threshold = 32768;
   self.maxPacketSize = 32768;
   self.closed = false;
-  self.connected = false;
+  self.connected = (channel.readyState === 'open') ? true : false;
   self.channel = channel;
   self.onopen = null;
   self.onerror = null;
@@ -154,7 +154,8 @@ function Rtc(servers, config) {
   self.ontransfer = {};
   self.onchannel = {};
   self.catchall = null;
-  self.backend = new Tasks();  
+  self.backend = new Tasks(); 
+  self.service = new Tasks();
     
   self.peer = new WebRTC.RTCPeerConnection(servers, config || {
     optional: [
@@ -365,7 +366,51 @@ function Rtc(servers, config) {
     
     checkNegotiation();
   });
+  
+  self.backend.on('SERVICE', function(req, data) {
+    self.service.transmit(data).then(function(reply) {
+      req.resolve(reply);
+    }).catch(function(error) {
+      req.reject(error);
+    });
+  });
+  
+  self.service.ontransmit = function(data) {
+    if (self.route && self.route.connected) {
+      return self.backend.send('SERVICE', data);
+    }
+    
+    return new $q(function(resolve, reject) {
+      self.connect().then(function(peer) {
+        self.backend.send('SERVICE', data).then(function(reply) {
+          resolve(reply);
+        }).catch(function(error) {
+          reject(error);
+        });
+      }).catch(function(error) {
+        reject(error);
+      });
+    });
+  };
 }
+
+Rtc.prototype.send = function(event, data, timeout) {
+  var self = this;
+  
+  return self.service.send(event, data, timeout);
+};
+
+Rtc.prototype.on = function(event, callback) {
+  var self = this;
+  
+  return self.service.on(event, callback);
+};
+
+Rtc.prototype.off = function(event, callback) {
+  var self = this;
+  
+  return self.service.off(event, callback);
+};
 
 Rtc.prototype.onChannel = function(channel, callback) {
   var self = this;
@@ -388,9 +433,15 @@ Rtc.prototype.offChannel = function(channel) {
 Rtc.prototype.setRoute = function(dataChannel) {
   var self = this;
   
-  return new $q(function(resolve, reject) {
-    var lastroute = self.route;
+  return new $q(function(resolve, reject) { 
     var channel = (dataChannel instanceof RtcDataChannel) ? dataChannel : new RtcDataChannel(dataChannel);
+    var lastroute = self.route;
+    
+    self.route = channel;
+    
+    if (lastroute) {
+      lastroute.end();
+    }   
     
     var timer = setInterval(function() {
       if (self.peer.signalingState == 'closed') {
@@ -401,7 +452,7 @@ Rtc.prototype.setRoute = function(dataChannel) {
     if (channel.connected) {
       clearInterval(timer);
 
-      if (channel == self.route) {
+      if (channel == self.route && !lastroute) {
         if (_.isFunction(self.onconnect)) {
           self.onconnect.call(self);
         }
@@ -449,12 +500,6 @@ Rtc.prototype.setRoute = function(dataChannel) {
       
       reject(error);
     };
-    
-    self.route = channel;
-    
-    if (lastroute) {
-      lastroute.end();
-    }
   });
 };
 
@@ -463,7 +508,8 @@ Rtc.prototype.end = function() {
   
   return new $q(function(resolve, reject) {
     self.backend.end();
-      
+    self.service.end();
+    
     if (self.peer.signalingState !== 'closed') {
       self.peer.close();
     }
