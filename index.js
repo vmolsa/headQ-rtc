@@ -259,7 +259,7 @@ function Rtc(servers, config) {
 
   self.backend.ontransmit = function(data) {
     if (self.route && self.route.connected) {
-      return self.route.write(data, { disableBuffer: true }).catch(function(error) {
+      return self.route.write(data, { disableBuffer: true, maxPacketSize: true }).catch(function(error) {
         self.end();
       });
     }
