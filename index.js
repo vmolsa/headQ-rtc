@@ -264,14 +264,38 @@ function Rtc(servers, config) {
     }
     
     if (_.isFunction(self.ontransmit)) {
-      return self.ontransmit(data).catch(function(error) {
-        if (error !== 404) {
-          self.end();
+      try {
+        var res = self.ontransmit(data);
+      } catch (error) {
+        return $q.reject(error);
+      }
+      
+      if (_.isObject(res) && _.isFunction(res.then)) {
+        return res.catch(function(error) {
+          if (error !== 404) {
+            self.end();
+          }
+        });
+      }
+      
+      if (_.isUndefined(res) || res === true) {
+        return $q.resolve(200);
+      }
+      
+      if (_.isNumber(res)) {
+        if (res >= 200 && res < 400) {
+          return $q.resolve(res);
         }
-      });
-    } else {
-      return $q.reject(500);
+        
+        return $q.reject(res);
+      }
+      
+      if (res === false) {
+        return $q.reject(400);
+      }
     }
+    
+    return $q.reject(500);
   };
      
   self.backend.on('ICE', function(req, data) {    
