@@ -1,0 +1,33 @@
+{
+  "name": "headq-rtc",
+  "version": "1.0.0",
+  "description": "WebRTC with promises",
+  "homepage": "https://github.com/vmolsa/headQ-rtc",
+  "author": "https://github.com/vmolsa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vmolsa/headQ-rtc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vmolsa/headQ-rtc/issues"
+  },
+  "keywords": [
+    "webrtc",
+    "media",
+    "file",
+    "rpc",
+    "simple",
+    "promise"
+  ],
+  "license": "MIT",
+  "main": "./index.js",
+  "dependencies": {
+    "headq": "^1.0.3",
+    "headq-tasks": "^1.0.0",
+    "lodash": "^3.10.1",
+    "webrtc-native": "^1.1.7"
+  },
+  "browser": {
+    "webrtc-native": false
+  }
+}
