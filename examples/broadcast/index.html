@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html ng-app="App" ng-controller="ctrl">
+  <head>
+    <link async rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css" />
+    <link async rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/octicons/2.4.1/octicons.css" />
+    <link async rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.4.0/animate.css" />
+    
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular-sanitize.js"></script>
+    <script type="text/javascript" src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+    <script type="text/javascript" src="/headq-rtc.min.js"></script>
+    
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+      }
+      
+      body {
+        background-color: #000;
+        color: #fff;
+      }
+      
+      .container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      
+      .inline {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: flex-start;
+      }
+      
+      .button {
+        margin: 10px;
+        padding: 10px;
+        color: #000;
+        background-color: #ddd;
+        line-height: 60px;
+        vertical-align: middle;
+        cursor: pointer;
+      }
+      
+      .button:hover {
+        background-color: #fff;
+      }
+      
+      .button i {
+        padding: 10px;
+      }
+      
+      .button span {
+        padding-right: 10px;
+      }
+      
+      .videoView {
+        min-height: 200px;
+        min-width: 200px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="inline" ng-hide="register">
+        <div class="button" ng-click="connect('broadcaster')">
+          <i class="fa fa-bullhorn"></i>
+          <span>Register as Broadcaster</span>
+        </div>
+        <div class="button" ng-click="connect('viewer')">
+          <i class="fa fa-desktop"></i>
+          <span>Register as Viewer</span>
+        </div>
+      </div>
+      <div class="inline" ng-show="register=='broadcaster'">
+        <div class="button" ng-click="end()">
+          <i class="fa fa-bullhorn"></i>
+          <span>Broadcasting...</span>
+        </div>
+      </div>
+      <div ng-show="register=='viewer'">
+        <div class="button" ng-click="end()">
+          <i class="fa fa-sign-out"></i>
+          <span>Exit</span>
+        </div>
+        <div class="inline">
+          <ul>
+            <li ng-repeat="feed in videoFeeds"><video ng-src="{{trustSrc(feed)}}" ng-click="videoSrc=feed"></video></li>
+          </ul>
+          <video class="videoView" ng-src="{{trustSrc(videoSrc)}}"></video>
+        </div>
+      </div>
+    </div>
+    <script>
+      var app = angular.module('App', ['ngSanitize']);
+
+      app.controller('ctrl', function($scope, $sce) {        
+        console.log('App started!');
+        
+        $scope.trustSrc = function(src) {
+          return $sce.trustAsResourceUrl(src);
+        }
+        
+        $scope.videoFeeds = [];
+        $scope.register = false;
+        $scope.videoSrc = null;
+        
+        $scope.connect = function(clientType) {
+          $scope.register = clientType;
+          
+          var socket = io.connect(window.location.hostname + ':' + window.location.port);
+          
+          socket.on('connect', function() {
+            console.log('Socket: Connected! :)');
+            
+            var peer = new headQrtc();
+          
+            peer.ontransmit = function(data) {
+              socket.emit('TRANSMIT', data);
+            };
+            
+            socket.on('TRANSMIT', function(data) {
+              peer.transmit(data);
+            });
+            
+            socket.on('disconnect', function () {
+              console.log('Socket: Disconnected! :/');
+              peer.end();
+            });
+            
+            peer.ondisconnect = function() {
+              console.log('Peer: Disconnected! :/');
+              socket.disconnect();
+            };
+            
+            peer.onconnect = function() {
+              console.log('Peer: Connected! :)');
+            };
+            
+            peer.onaddstream = function(stream) {
+              console.log('Peer: Got stream!');
+              
+              $scope.$apply(function () {
+                $scope.videoFeeds.push(window.URL.createObjectURL(stream));
+              });
+            };
+            
+            peer.send('register', $scope.register).then(function() {
+              if ($scope.register == 'broadcaster') {
+                peer.getUserMedia().then(function(stream) {
+                  peer.addStream(stream);
+                }).catch(function(error) {
+                  console.log(error);
+                });
+              }
+            }).catch(function(error) {
+              console.log(error);
+              peer.end();
+            });
+            
+            $scope.end = function() {
+              peer.end().then(function() {
+                $scope.$apply(function () {
+                  $scope.register = false;
+                  window.location = window.location.href;
+                });
+              });
+            };
+          });
+        };
+      }); 
+    </script>
+  </body>
+</html>
