@@ -79,11 +79,12 @@
           <span>Register as Viewer</span>
         </div>
       </div>
-      <div class="inline" ng-show="register=='broadcaster'">
+      <div ng-show="register=='broadcaster'">
         <div class="button" ng-click="end()">
           <i class="fa fa-bullhorn"></i>
           <span>Broadcasting...</span>
         </div>
+        <video class="videoView" autoplay ng-src="{{trustSrc(videoSrc)}}"></video>
       </div>
       <div ng-show="register=='viewer'">
         <div class="button" ng-click="end()">
@@ -92,9 +93,9 @@
         </div>
         <div class="inline">
           <ul>
-            <li ng-repeat="feed in videoFeeds"><video ng-src="{{trustSrc(feed)}}" ng-click="videoSrc=feed"></video></li>
+            <li ng-repeat="feed in videoFeeds" ng-click="videoSrc=feed"><video ng-src="{{trustSrc(feed)}}" autoplay></video></li>
           </ul>
-          <video class="videoView" ng-src="{{trustSrc(videoSrc)}}"></video>
+          <video class="videoView" ng-src="{{trustSrc(videoSrc)}}" autoplay></video>
         </div>
       </div>
     </div>
@@ -155,6 +156,10 @@
             peer.send('register', $scope.register).then(function() {
               if ($scope.register == 'broadcaster') {
                 peer.getUserMedia().then(function(stream) {
+                  $scope.$apply(function() {
+                    $scope.videoSrc = window.URL.createObjectURL(stream);
+                  });
+                  
                   peer.addStream(stream);
                 }).catch(function(error) {
                   console.log(error);
