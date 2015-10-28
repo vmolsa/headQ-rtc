@@ -65,6 +65,21 @@
         min-height: 200px;
         min-width: 200px;
       }
+      
+      ul {
+        margin: 0;
+      }
+      
+      li {
+        width: 180px;
+        padding: 10px;
+      }
+      
+      li video {
+        max-width: 160px;
+        max-height: 160px;
+      }
+      
     </style>
   </head>
   <body>
@@ -93,8 +108,8 @@
           <span>Exit</span>
         </div>
         <div class="inline">
-          <ul>
-            <li ng-repeat="feed in videoFeeds" ng-click="videoSrc=feed"><video ng-src="{{trustSrc(feed)}}" autoplay="true"></video></li>
+          <ul class="fa-ul">
+            <li ng-repeat="feed in videoFeeds" ng-click="openVideo(feed)"><i class="fa-li fa fa-video-camera"></i><video ng-src="{{trustSrc(feed)}}" autoplay="true"></video></li>
           </ul>
           <video class="videoView" ng-src="{{trustSrc(videoSrc)}}" autoplay="true"></video>
         </div>
@@ -113,6 +128,10 @@
         $scope.videoFeeds = [];
         $scope.register = false;
         $scope.videoSrc = null;
+        
+        $scope.openVideo = function(feed) {
+          $scope.videoSrc = feed;
+        };
         
         $scope.connect = function(clientType) {
           $scope.register = clientType;
@@ -150,7 +169,7 @@
               console.log('Peer: Got stream!');
               
               if (stream.active) {
-                $scope.$apply(function () {
+                $scope.$apply(function() {
                   $scope.videoFeeds.push(window.URL.createObjectURL(stream));
                 });
               }
