@@ -81,10 +81,11 @@
       </div>
       <div ng-show="register=='broadcaster'">
         <div class="button" ng-click="end()">
-          <i class="fa fa-bullhorn"></i>
-          <span>Broadcasting...</span>
+          <i class="fa fa-sign-out"></i>
+          <span>Exit</span>
         </div>
-        <video class="videoView" autoplay ng-src="{{trustSrc(videoSrc)}}"></video>
+        <video class="videoView" id="LocalVideo" autoplay="true"></video>
+        <audio id="LocalAudio" autoplay="true"></audio>
       </div>
       <div ng-show="register=='viewer'">
         <div class="button" ng-click="end()">
@@ -93,9 +94,9 @@
         </div>
         <div class="inline">
           <ul>
-            <li ng-repeat="feed in videoFeeds" ng-click="videoSrc=feed"><video ng-src="{{trustSrc(feed)}}" autoplay></video></li>
+            <li ng-repeat="feed in videoFeeds" ng-click="videoSrc=feed"><video ng-src="{{trustSrc(feed)}}" autoplay="true"></video></li>
           </ul>
-          <video class="videoView" ng-src="{{trustSrc(videoSrc)}}" autoplay></video>
+          <video class="videoView" ng-src="{{trustSrc(videoSrc)}}" autoplay="true"></video>
         </div>
       </div>
     </div>
@@ -133,12 +134,12 @@
             
             socket.on('disconnect', function () {
               console.log('Socket: Disconnected! :/');
-              peer.end();
+              $scope.end();
             });
             
             peer.ondisconnect = function() {
               console.log('Peer: Disconnected! :/');
-              socket.disconnect();
+              $scope.end();
             };
             
             peer.onconnect = function() {
@@ -148,19 +149,31 @@
             peer.onaddstream = function(stream) {
               console.log('Peer: Got stream!');
               
-              $scope.$apply(function () {
-                $scope.videoFeeds.push(window.URL.createObjectURL(stream));
-              });
+              if (stream.active) {
+                $scope.$apply(function () {
+                  $scope.videoFeeds.push(window.URL.createObjectURL(stream));
+                });
+              }
             };
             
             peer.send('register', $scope.register).then(function() {
               if ($scope.register == 'broadcaster') {
-                peer.getUserMedia().then(function(stream) {
-                  $scope.$apply(function() {
-                    $scope.videoSrc = window.URL.createObjectURL(stream);
-                  });
+                peer.getUserMedia({ audio: false, video: true }).then(function(stream) {
+                  document.getElementById('LocalVideo').src = window.URL.createObjectURL(stream);
                   
                   peer.addStream(stream);
+                }).catch(function(error) {
+                  console.log(error);
+                });
+                
+                peer.getUserMedia({ audio: true, video: false }).then(function(stream) {
+                  //document.getElementById('LocalAudio').src = window.URL.createObjectURL(stream);
+                  
+                  //stream.getAudioTracks().forEach(function(audio) {
+                  //  audio.enabled = false;
+                  //});
+                  
+                  //peer.addStream(stream);
                 }).catch(function(error) {
                   console.log(error);
                 });
@@ -171,6 +184,8 @@
             });
             
             $scope.end = function() {
+              socket.disconnect();
+              
               peer.end().then(function() {
                 $scope.$apply(function () {
                   $scope.register = false;
