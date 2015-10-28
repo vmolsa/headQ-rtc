@@ -153,6 +153,8 @@ function Rtc(servers, config) {
   self.ondisconnect = null;
   self.ontransfer = {};
   self.onchannel = {};
+  self.onaddstream = null;
+  self.onremovestream = null;
   self.catchall = null;
   self.backend = new Tasks(); 
   self.service = new Tasks();
@@ -170,11 +172,15 @@ function Rtc(servers, config) {
   });
   
   self.peer.onaddstream = function(event) {
-    
+    if (_.isFunction(self.onaddstream)) {
+      self.onaddstream.call(self, event.stream || event);
+    }
   };
   
   self.peer.onremovestream = function(event) {
-    
+    if (_.isFunction(self.onremovestream)) {
+      self.onremovestream.call(self, event.stream || event);
+    }
   };
   
   self.peer.ondatachannel = function(event) {
@@ -605,4 +611,83 @@ Rtc.prototype.createChannel = function(label, options) {
   });
 };
 
+Rtc.prototype.getStream = function(id) {
+  var self = this;
+  
+  return new $q(function(resolve, reject) {
+    var result = self.peer.getStreamById(id);
+    
+    if (result) {
+      return resolve(result);
+    }
+    
+    reject(404);
+  });
+};
+
+Rtc.prototype.getLocalStreams = function(stream) {
+  var self = this;
+  
+  return new $q(function(resolve, reject) {
+    resolve(self.peer.getLocalStreams());
+  });
+};
+
+Rtc.prototype.getRemoteStreams = function(stream) {
+  var self = this;
+  
+  return new $q(function(resolve, reject) {
+    resolve(self.peer.getRemoteStreams());
+  });
+};
+
+Rtc.prototype.addStream = function(stream) {
+  var self = this;
+  
+  return new $q(function(resolve, reject) {
+    try {
+      self.peer.addStream(stream);
+      resolve(stream);
+    } catch(error) {
+      reject(error);
+    }
+  });
+};
+
+Rtc.prototype.removeStream = function(stream) {
+  var self = this;
+  
+  return new $q(function(resolve, reject) {
+    try {
+      self.peer.removeStream(stream);
+      resolve(stream);
+    } catch(error) {
+      reject(error);
+    }
+  });
+};
+
+Rtc.prototype.getUserMedia = function(constraints) {
+  var self = this;
+  
+  if (!_.isObject(constraints)) {
+    constraints = { 
+      audio: true,
+      video: true,
+    };
+  }
+  
+  return new $q(function(resolve, reject) {
+    WebRTC.getUserMedia(constraints, function(stream) {
+      resolve(stream);
+    }, function(error) {
+      reject(error);
+    });
+  });
+};
+
 module.exports = Rtc;
+
+if (typeof window !== 'undefined' && typeof navigator !== 'undefined') {
+  window.headQrtc = Rtc;
+}
